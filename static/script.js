@@ -5,12 +5,12 @@ async function uploadDocument() {
     const patientId = patientIdInput.value.trim();
 
     if (!patientId) {
-        showStatus('Please enter a Patient ID first.', 'error');
+        showStatus('uploadStatus', 'Please enter a Patient ID first.', 'error');
         return;
     }
 
     if (!fileInput.files.length) {
-        showStatus('Please select a PDF or TXT file first.', 'error');
+        showStatus('uploadStatus', 'Please select a PDF or TXT file first.', 'error');
         return;
     }
 
@@ -18,7 +18,7 @@ async function uploadDocument() {
     formData.append('patient_id', patientId);
     formData.append('file', fileInput.files[0]);
 
-    showStatus('Uploading and ingesting patient document...', 'success');
+    showStatus('uploadStatus', 'Uploading and ingesting patient document...', 'success');
 
     try {
         const response = await fetch('/upload', {
@@ -35,11 +35,50 @@ async function uploadDocument() {
         const chunks = data.result.chunks_created;
 
         showStatus(
+            'uploadStatus',
             `Uploaded patient ${patientId} successfully. Created ${chunks} chunks.`,
             'success'
         );
     } catch (error) {
-        showStatus(`Upload failed: ${error.message}`, 'error');
+        showStatus('uploadStatus', `Upload failed: ${error.message}`, 'error');
+    }
+}
+
+
+async function uploadBulkDocument() {
+    const bulkFileInput = document.getElementById('bulkFileInput');
+
+    if (!bulkFileInput.files.length) {
+        showStatus('bulkUploadStatus', 'Please select a bulk PDF or TXT file first.', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', bulkFileInput.files[0]);
+
+    showStatus('bulkUploadStatus', 'Uploading and processing bulk patient document...', 'success');
+
+    try {
+        const response = await fetch('/upload-bulk', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Bulk upload failed');
+        }
+
+        const result = data.result;
+
+        showStatus(
+            'bulkUploadStatus',
+            `Bulk upload complete. Found ${result.patients_found} patients, ingested ${result.patients_ingested}, created ${result.chunks_created} chunks. Skipped existing: ${result.skipped_existing_patients.length}`,
+            'success'
+        );
+    } catch (error) {
+        showStatus('bulkUploadStatus', `Bulk upload failed: ${error.message}`, 'error');
     }
 }
 
@@ -98,15 +137,15 @@ function setQuestion(question) {
 }
 
 
-function showStatus(message, type) {
-    const uploadStatus = document.getElementById('uploadStatus');
+function showStatus(elementId, message, type) {
+    const statusBox = document.getElementById(elementId);
 
-    uploadStatus.textContent = message;
-    uploadStatus.classList.remove('hidden', 'status-success', 'status-error');
+    statusBox.textContent = message;
+    statusBox.classList.remove('hidden', 'status-success', 'status-error');
 
     if (type === 'success') {
-        uploadStatus.classList.add('status-success');
+        statusBox.classList.add('status-success');
     } else {
-        uploadStatus.classList.add('status-error');
+        statusBox.classList.add('status-error');
     }
 }
