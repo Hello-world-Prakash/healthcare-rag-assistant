@@ -83,6 +83,9 @@ async function loginUser() {
         }
 
         localStorage.setItem("access_token", data.access_token);
+	
+	usernameInput.value = "";
+	passwordInput.value = "";
 
         showStatus("loginStatus", "Login successful.", "success");
 
@@ -99,7 +102,24 @@ async function loginUser() {
 function logoutUser() {
     localStorage.removeItem("access_token");
 
+    const usernameInput = document.getElementById("usernameInput");
+    const passwordInput = document.getElementById("passwordInput");
+    const loginStatus = document.getElementById("loginStatus");
     const answerBox = document.getElementById("answerBox");
+    
+    if (usernameInput) {
+	usernameInput.value = "";
+    }
+
+    if (passwordInput) {
+	passwordInput.value = "";
+    }
+
+    if (loginStatus) {
+	loginStatus.textContent ="";
+	loginStatus.classList.add("hidden");
+	loginStatus.classList.remove("status-success", "status-error");
+    }
     if (answerBox) {
         answerBox.textContent = "Your answer will appear here.";
     }
