@@ -5,16 +5,21 @@ console.log("script.js loaded successfully");
 ========================= */
 
 function getToken() {
-    return localStorage.getItem("access_token");
+    return sessionStorage.getItem("access_token");
 }
 
 function authHeaders() {
+    const token = getToken();
+
     return {
-        "Authorization": `Bearer ${getToken()}`
+        "Authorization": `Bearer ${token}`
     };
 }
 
 function checkAuthState() {
+    // Clear any old token that was previously stored in localStorage
+    localStorage.removeItem("access_token");
+
     const token = getToken();
 
     const loginSection = document.getElementById("loginSection");
@@ -82,10 +87,15 @@ async function loginUser() {
             throw new Error(data.detail || "Login failed");
         }
 
-        localStorage.setItem("access_token", data.access_token);
-	
-	usernameInput.value = "";
-	passwordInput.value = "";
+        // Store token only for the current browser tab/session
+        sessionStorage.setItem("access_token", data.access_token);
+
+        // Remove old persistent token if it exists
+        localStorage.removeItem("access_token");
+
+        // Clear credentials after successful login
+        usernameInput.value = "";
+        passwordInput.value = "";
 
         showStatus("loginStatus", "Login successful.", "success");
 
@@ -100,26 +110,28 @@ async function loginUser() {
 }
 
 function logoutUser() {
+    sessionStorage.removeItem("access_token");
     localStorage.removeItem("access_token");
 
     const usernameInput = document.getElementById("usernameInput");
     const passwordInput = document.getElementById("passwordInput");
     const loginStatus = document.getElementById("loginStatus");
     const answerBox = document.getElementById("answerBox");
-    
+
     if (usernameInput) {
-	usernameInput.value = "";
+        usernameInput.value = "";
     }
 
     if (passwordInput) {
-	passwordInput.value = "";
+        passwordInput.value = "";
     }
 
     if (loginStatus) {
-	loginStatus.textContent ="";
-	loginStatus.classList.add("hidden");
-	loginStatus.classList.remove("status-success", "status-error");
+        loginStatus.textContent = "";
+        loginStatus.classList.add("hidden");
+        loginStatus.classList.remove("status-success", "status-error");
     }
+
     if (answerBox) {
         answerBox.textContent = "Your answer will appear here.";
     }
@@ -136,6 +148,12 @@ async function uploadDocument() {
     const patientIdInput = document.getElementById("patientIdInput");
 
     const patientId = patientIdInput.value.trim();
+
+    if (!getToken()) {
+        showStatus("uploadStatus", "Please login first.", "error");
+        checkAuthState();
+        return;
+    }
 
     if (!patientId) {
         showStatus("uploadStatus", "Please enter a Patient ID first.", "error");
@@ -163,6 +181,11 @@ async function uploadDocument() {
         const data = await response.json();
 
         if (!response.ok) {
+            if (response.status === 401) {
+                sessionStorage.removeItem("access_token");
+                checkAuthState();
+            }
+
             throw new Error(data.detail || "Upload failed");
         }
 
@@ -187,6 +210,12 @@ async function uploadDocument() {
 async function uploadBulkDocument() {
     const bulkFileInput = document.getElementById("bulkFileInput");
 
+    if (!getToken()) {
+        showStatus("bulkUploadStatus", "Please login first.", "error");
+        checkAuthState();
+        return;
+    }
+
     if (!bulkFileInput.files.length) {
         showStatus("bulkUploadStatus", "Please select a bulk PDF or TXT file first.", "error");
         return;
@@ -207,6 +236,11 @@ async function uploadBulkDocument() {
         const data = await response.json();
 
         if (!response.ok) {
+            if (response.status === 401) {
+                sessionStorage.removeItem("access_token");
+                checkAuthState();
+            }
+
             throw new Error(data.detail || "Bulk upload failed");
         }
 
@@ -237,6 +271,12 @@ async function askQuestion() {
     const patientId = patientIdInput.value.trim();
     const question = questionInput.value.trim();
 
+    if (!getToken()) {
+        answerBox.textContent = "Please login first.";
+        checkAuthState();
+        return;
+    }
+
     if (!patientId) {
         answerBox.textContent = "Please enter a Patient ID first.";
         return;
@@ -266,6 +306,11 @@ async function askQuestion() {
         const data = await response.json();
 
         if (!response.ok) {
+            if (response.status === 401) {
+                sessionStorage.removeItem("access_token");
+                checkAuthState();
+            }
+
             throw new Error(data.detail || "Question failed");
         }
 
@@ -285,7 +330,10 @@ async function askQuestion() {
 
 function setQuestion(question) {
     const questionInput = document.getElementById("questionInput");
-    questionInput.value = question;
+
+    if (questionInput) {
+        questionInput.value = question;
+    }
 }
 
 function showStatus(elementId, message, type) {
@@ -312,5 +360,9 @@ function showStatus(elementId, message, type) {
 
 document.addEventListener("DOMContentLoaded", function () {
     console.log("DOM loaded successfully");
+
+    // Remove old persistent token from older version
+    localStorage.removeItem("access_token");
+
     checkAuthState();
 });
