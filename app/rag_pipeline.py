@@ -4,7 +4,9 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.documents import Document
 from pathlib import Path
+import re
 
 
 CHROMA_DIR = 'chroma_db'
@@ -80,6 +82,36 @@ def validate_patient_upload(patient_id: str, file_hash: str):
     }
 
 
+def split_records_by_patient_id(full_text: str):
+    """
+    Splits one large file into multiple patient records.
+
+    Expected format:
+    Patient ID: SYN-1001
+    ...
+    Patient ID: SYN-1002
+    ...
+    """
+
+    pattern = r'(Patient ID:\s*([A-Za-z0-9_-]+).*?)(?=Patient ID:\s*[A-Za-z0-9_-]+|$)'
+
+    matches = re.findall(
+        pattern,
+        full_text,
+        flags=re.DOTALL | re.IGNORECASE
+    )
+
+    patient_records = []
+
+    for record_text, patient_id in matches:
+        patient_records.append({
+            'patient_id': patient_id.strip(),
+            'text': record_text.strip()
+        })
+
+    return patient_records
+
+
 def ingest_document(file_path: str, patient_id: str, file_name: str, file_hash: str):
     documents = load_document(file_path)
 
@@ -94,6 +126,7 @@ def ingest_document(file_path: str, patient_id: str, file_name: str, file_hash: 
         chunk.metadata['patient_id'] = patient_id
         chunk.metadata['file_name'] = file_name
         chunk.metadata['file_hash'] = file_hash
+        chunk.metadata['source_type'] = 'single_patient_upload'
 
     vector_store = get_vector_store()
 
@@ -104,6 +137,74 @@ def ingest_document(file_path: str, patient_id: str, file_name: str, file_hash: 
         'patient_id': patient_id,
         'file_name': file_name,
         'chunks_created': len(chunks)
+    }
+
+
+def ingest_bulk_patient_document(file_path: str, file_name: str, file_hash: str):
+    documents = load_document(file_path)
+
+    full_text = '\n\n'.join([doc.page_content for doc in documents])
+
+    patient_records = split_records_by_patient_id(full_text)
+
+    if not patient_records:
+        return {
+            'message': 'No patient records found. Make sure each record starts with Patient ID: SYN-1001 format.',
+            'patients_found': 0,
+            'patients_ingested': 0,
+            'chunks_created': 0,
+            'skipped_existing_patients': []
+        }
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=800,
+        chunk_overlap=150
+    )
+
+    all_chunks = []
+    skipped_existing_patients = []
+    ingested_patient_ids = []
+
+    for record in patient_records:
+        patient_id = record['patient_id']
+
+        if patient_id_exists(patient_id):
+            skipped_existing_patients.append(patient_id)
+            continue
+
+        patient_doc = Document(
+            page_content=record['text'],
+            metadata={
+                'patient_id': patient_id,
+                'file_name': file_name,
+                'file_hash': file_hash,
+                'source_type': 'bulk_patient_upload'
+            }
+        )
+
+        chunks = splitter.split_documents([patient_doc])
+
+        for chunk in chunks:
+            chunk.metadata['patient_id'] = patient_id
+            chunk.metadata['file_name'] = file_name
+            chunk.metadata['file_hash'] = file_hash
+            chunk.metadata['source_type'] = 'bulk_patient_upload'
+
+        all_chunks.extend(chunks)
+        ingested_patient_ids.append(patient_id)
+
+    vector_store = get_vector_store()
+
+    if all_chunks:
+        vector_store.add_documents(all_chunks)
+
+    return {
+        'message': 'Bulk patient document processed successfully',
+        'patients_found': len(patient_records),
+        'patients_ingested': len(ingested_patient_ids),
+        'chunks_created': len(all_chunks),
+        'ingested_patient_ids': ingested_patient_ids,
+        'skipped_existing_patients': skipped_existing_patients
     }
 
 

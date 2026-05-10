@@ -2,7 +2,12 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.models import AskRequest, AskResponse
-from app.rag_pipeline import ingest_document, ask_question, validate_patient_upload
+from app.rag_pipeline import (
+    ingest_document,
+    ingest_bulk_patient_document,
+    ask_question,
+    validate_patient_upload
+)
 from pathlib import Path
 import hashlib
 
@@ -10,7 +15,7 @@ import hashlib
 app = FastAPI(
     title='Healthcare RAG Assistant',
     description='Local GenAI document Q&A system using FastAPI, LangChain, ChromaDB, Sentence Transformers, and Ollama.',
-    version='2.1.0'
+    version='2.2.0'
 )
 
 
@@ -59,6 +64,30 @@ async def upload_document(
 
     return {
         'patient_id': patient_id,
+        'filename': file.filename,
+        'result': result
+    }
+
+
+@app.post('/upload-bulk')
+async def upload_bulk_document(
+    file: UploadFile = File(...)
+):
+    file_bytes = await file.read()
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+
+    file_path = DATA_DIR / f'bulk_{file.filename}'
+
+    with file_path.open('wb') as buffer:
+        buffer.write(file_bytes)
+
+    result = ingest_bulk_patient_document(
+        file_path=str(file_path),
+        file_name=file.filename,
+        file_hash=file_hash
+    )
+
+    return {
         'filename': file.filename,
         'result': result
     }
