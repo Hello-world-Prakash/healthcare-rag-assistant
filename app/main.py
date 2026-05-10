@@ -1,16 +1,16 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.models import AskRequest, AskResponse
-from app.rag_pipeline import ingest_document, ask_question
+from app.rag_pipeline import ingest_document, ask_question, validate_patient_upload
 from pathlib import Path
-import shutil
+import hashlib
 
 
 app = FastAPI(
     title='Healthcare RAG Assistant',
     description='Local GenAI document Q&A system using FastAPI, LangChain, ChromaDB, Sentence Transformers, and Ollama.',
-    version='1.0.0'
+    version='2.1.0'
 )
 
 
@@ -26,15 +26,39 @@ def home():
 
 
 @app.post('/upload')
-async def upload_document(file: UploadFile = File(...)):
-    file_path = DATA_DIR / file.filename
+async def upload_document(
+    patient_id: str = Form(...),
+    file: UploadFile = File(...)
+):
+    file_bytes = await file.read()
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+
+    validation = validate_patient_upload(
+        patient_id=patient_id,
+        file_hash=file_hash
+    )
+
+    if not validation['is_valid']:
+        raise HTTPException(
+            status_code=409,
+            detail=validation['reason']
+        )
+
+    safe_patient_id = patient_id.replace(' ', '_')
+    file_path = DATA_DIR / f'{safe_patient_id}_{file.filename}'
 
     with file_path.open('wb') as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(file_bytes)
 
-    result = ingest_document(str(file_path))
+    result = ingest_document(
+        file_path=str(file_path),
+        patient_id=patient_id,
+        file_name=file.filename,
+        file_hash=file_hash
+    )
 
     return {
+        'patient_id': patient_id,
         'filename': file.filename,
         'result': result
     }
@@ -42,9 +66,13 @@ async def upload_document(file: UploadFile = File(...)):
 
 @app.post('/ask', response_model=AskResponse)
 def ask(request: AskRequest):
-    answer = ask_question(request.question)
+    answer = ask_question(
+        patient_id=request.patient_id,
+        question=request.question
+    )
 
     return AskResponse(
+        patient_id=request.patient_id,
         question=request.question,
         answer=answer
     )

@@ -11,9 +11,9 @@
         <header class='hero-section'>
             <div>
                 <p class='badge'>Local GenAI + RAG Project</p>
-                <h1>Healthcare Document Q&A Assistant</h1>
+                <h1>Healthcare Patient Record Q&A Assistant</h1>
                 <p class='subtitle'>
-                    Upload a healthcare PDF or text document, ask questions, and get grounded answers using your local RAG pipeline.
+                    Upload multiple synthetic patient records, tag each one with a Patient ID, and retrieve answers only from the selected patient's data.
                 </p>
             </div>
         </header>
@@ -23,14 +23,21 @@
                 <div class='card-header'>
                     <span class='step'>01</span>
                     <div>
-                        <h2>Upload Document</h2>
-                        <p>Upload a PDF or TXT file to ingest into ChromaDB.</p>
+                        <h2>Upload Patient Record</h2>
+                        <p>Enter a Patient ID and upload a PDF or TXT file.</p>
                     </div>
                 </div>
 
                 <div class='upload-box'>
+                    <input 
+                        type='text' 
+                        id='patientIdInput' 
+                        placeholder='Enter Patient ID, example: SYN-1001' 
+                    />
+
                     <input type='file' id='fileInput' accept='.pdf,.txt' />
-                    <button onclick='uploadDocument()'>Upload & Ingest</button>
+
+                    <button onclick='uploadDocument()'>Upload Patient Record</button>
                 </div>
 
                 <div id='uploadStatus' class='status-box hidden'></div>
@@ -40,17 +47,24 @@
                 <div class='card-header'>
                     <span class='step'>02</span>
                     <div>
-                        <h2>Ask a Question</h2>
-                        <p>Ask anything based on the uploaded document.</p>
+                        <h2>Ask About a Patient</h2>
+                        <p>Enter the Patient ID you want to search.</p>
                     </div>
                 </div>
 
-                <textarea id='questionInput' placeholder='Example: Summarize this document in simple words.'></textarea>
+                <input 
+                    type='text' 
+                    id='askPatientIdInput' 
+                    placeholder='Enter Patient ID to search, example: SYN-1001' 
+                />
+
+                <textarea id='questionInput' placeholder='Example: What medications is this patient taking?'></textarea>
 
                 <div class='quick-questions'>
-                    <button onclick='setQuestion(\"Summarize this document in simple words.\")'>Summarize</button>
-                    <button onclick='setQuestion(\"What are the main topics discussed in this document?\")'>Main Topics</button>
-                    <button onclick='setQuestion(\"List the key points from this document.\")'>Key Points</button>
+                    <button onclick='setQuestion(\"Summarize this patient record in simple words.\")'>Summarize</button>
+                    <button onclick='setQuestion(\"What medications is this patient taking?\")'>Medications</button>
+                    <button onclick='setQuestion(\"What conditions does this patient have?\")'>Conditions</button>
+                    <button onclick='setQuestion(\"What is the assessment and plan?\")'>Plan</button>
                 </div>
 
                 <button class='ask-button' onclick='askQuestion()'>Ask Assistant</button>
@@ -62,7 +76,7 @@
                 <span class='step'>03</span>
                 <div>
                     <h2>Answer</h2>
-                    <p>The response is generated using retrieved document context.</p>
+                    <p>The response is generated only from the selected patient's retrieved context.</p>
                 </div>
             </div>
 
@@ -79,7 +93,7 @@
                 <div>FastAPI</div>
                 <div>LangChain</div>
                 <div>ChromaDB</div>
-                <div>Sentence Transformers</div>
+                <div>Metadata Filtering</div>
                 <div>Ollama</div>
                 <div>Pydantic</div>
             </div>
