@@ -1,6 +1,13 @@
 async function uploadDocument() {
     const fileInput = document.getElementById('fileInput');
-    const uploadStatus = document.getElementById('uploadStatus');
+    const patientIdInput = document.getElementById('patientIdInput');
+
+    const patientId = patientIdInput.value.trim();
+
+    if (!patientId) {
+        showStatus('Please enter a Patient ID first.', 'error');
+        return;
+    }
 
     if (!fileInput.files.length) {
         showStatus('Please select a PDF or TXT file first.', 'error');
@@ -8,9 +15,10 @@ async function uploadDocument() {
     }
 
     const formData = new FormData();
+    formData.append('patient_id', patientId);
     formData.append('file', fileInput.files[0]);
 
-    showStatus('Uploading and ingesting document...', 'success');
+    showStatus('Uploading and ingesting patient document...', 'success');
 
     try {
         const response = await fetch('/upload', {
@@ -27,7 +35,7 @@ async function uploadDocument() {
         const chunks = data.result.chunks_created;
 
         showStatus(
-            `Uploaded successfully. Created ${chunks} document chunks.`,
+            `Uploaded patient ${patientId} successfully. Created ${chunks} chunks.`,
             'success'
         );
     } catch (error) {
@@ -37,11 +45,18 @@ async function uploadDocument() {
 
 
 async function askQuestion() {
+    const patientIdInput = document.getElementById('askPatientIdInput');
     const questionInput = document.getElementById('questionInput');
     const answerBox = document.getElementById('answerBox');
     const loader = document.getElementById('loader');
 
+    const patientId = patientIdInput.value.trim();
     const question = questionInput.value.trim();
+
+    if (!patientId) {
+        answerBox.textContent = 'Please enter a Patient ID first.';
+        return;
+    }
 
     if (!question) {
         answerBox.textContent = 'Please enter a question first.';
@@ -57,7 +72,10 @@ async function askQuestion() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ question })
+            body: JSON.stringify({
+                patient_id: patientId,
+                question: question
+            })
         });
 
         const data = await response.json();

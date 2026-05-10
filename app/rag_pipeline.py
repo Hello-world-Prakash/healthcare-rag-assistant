@@ -8,7 +8,6 @@ from pathlib import Path
 
 
 CHROMA_DIR = 'chroma_db'
-DATA_DIR = 'data'
 
 embedding_model = HuggingFaceEmbeddings(
     model_name='sentence-transformers/all-MiniLM-L6-v2'
@@ -33,7 +32,7 @@ def load_document(file_path: str):
     raise ValueError('Only PDF and TXT files are supported.')
 
 
-def ingest_document(file_path: str):
+def ingest_document(file_path: str, patient_id: str, file_name: str):
     documents = load_document(file_path)
 
     splitter = RecursiveCharacterTextSplitter(
@@ -43,6 +42,10 @@ def ingest_document(file_path: str):
 
     chunks = splitter.split_documents(documents)
 
+    for chunk in chunks:
+        chunk.metadata['patient_id'] = patient_id
+        chunk.metadata['file_name'] = file_name
+
     vector_store = Chroma(
         persist_directory=CHROMA_DIR,
         embedding_function=embedding_model
@@ -51,19 +54,26 @@ def ingest_document(file_path: str):
     vector_store.add_documents(chunks)
 
     return {
-        'message': 'Document ingested successfully',
+        'message': 'Patient document ingested successfully',
+        'patient_id': patient_id,
+        'file_name': file_name,
         'chunks_created': len(chunks)
     }
 
 
-def ask_question(question: str):
+def ask_question(patient_id: str, question: str):
     vector_store = Chroma(
         persist_directory=CHROMA_DIR,
         embedding_function=embedding_model
     )
 
     retriever = vector_store.as_retriever(
-        search_kwargs={'k': 3}
+        search_kwargs={
+            'k': 4,
+            'filter': {
+                'patient_id': patient_id
+            }
+        }
     )
 
     docs = retriever.invoke(question)
@@ -72,11 +82,16 @@ def ask_question(question: str):
 
     prompt = ChatPromptTemplate.from_template(
         '''
-        You are a helpful healthcare document assistant.
+        You are a helpful medical document assistant.
 
-        Answer the user's question only using the context below.
-        If the answer is not available in the context, say:
-        "I could not find enough information in the uploaded documents."
+        Use only the context below to answer the user's question.
+        The context belongs only to patient ID: {patient_id}.
+
+        Do not use information from other patients.
+        If the user asks for a summary, summarize only this patient's available context.
+
+        If the context is empty or does not contain the answer, say:
+        "I could not find enough information for this patient in the uploaded records."
 
         Context:
         {context}
@@ -89,6 +104,7 @@ def ask_question(question: str):
     )
 
     final_prompt = prompt.format(
+        patient_id=patient_id,
         context=context,
         question=question
     )

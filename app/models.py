@@ -1,6 +1,12 @@
 from pydantic import BaseModel
+
+
 class AskRequest(BaseModel):
-   question: str
+    patient_id: str
+    question: str
+
+
 class AskResponse(BaseModel):
-   question: str
-   answer: str
+    patient_id: str
+    question: str
+    answer: str

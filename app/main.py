@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.models import AskRequest, AskResponse
@@ -10,7 +10,7 @@ import shutil
 app = FastAPI(
     title='Healthcare RAG Assistant',
     description='Local GenAI document Q&A system using FastAPI, LangChain, ChromaDB, Sentence Transformers, and Ollama.',
-    version='1.0.0'
+    version='2.0.0'
 )
 
 
@@ -26,15 +26,23 @@ def home():
 
 
 @app.post('/upload')
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    patient_id: str = Form(...),
+    file: UploadFile = File(...)
+):
     file_path = DATA_DIR / file.filename
 
     with file_path.open('wb') as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    result = ingest_document(str(file_path))
+    result = ingest_document(
+        file_path=str(file_path),
+        patient_id=patient_id,
+        file_name=file.filename
+    )
 
     return {
+        'patient_id': patient_id,
         'filename': file.filename,
         'result': result
     }
@@ -42,9 +50,13 @@ async def upload_document(file: UploadFile = File(...)):
 
 @app.post('/ask', response_model=AskResponse)
 def ask(request: AskRequest):
-    answer = ask_question(request.question)
+    answer = ask_question(
+        patient_id=request.patient_id,
+        question=request.question
+    )
 
     return AskResponse(
+        patient_id=request.patient_id,
         question=request.question,
         answer=answer
     )
