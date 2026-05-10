@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Healthcare RAG Assistant</title>
+    <link rel='stylesheet' href='/static/styles.css' />
+</head>
+<body>
+    <div class='page-wrapper'>
+        <header class='hero-section'>
+            <div>
+                <p class='badge'>Local GenAI + RAG Project</p>
+                <h1>Healthcare Document Q&A Assistant</h1>
+                <p class='subtitle'>
+                    Upload a healthcare PDF or text document, ask questions, and get grounded answers using your local RAG pipeline.
+                </p>
+            </div>
+        </header>
+
+        <main class='main-grid'>
+            <section class='card upload-card'>
+                <div class='card-header'>
+                    <span class='step'>01</span>
+                    <div>
+                        <h2>Upload Document</h2>
+                        <p>Upload a PDF or TXT file to ingest into ChromaDB.</p>
+                    </div>
+                </div>
+
+                <div class='upload-box'>
+                    <input type='file' id='fileInput' accept='.pdf,.txt' />
+                    <button onclick='uploadDocument()'>Upload & Ingest</button>
+                </div>
+
+                <div id='uploadStatus' class='status-box hidden'></div>
+            </section>
+
+            <section class='card question-card'>
+                <div class='card-header'>
+                    <span class='step'>02</span>
+                    <div>
+                        <h2>Ask a Question</h2>
+                        <p>Ask anything based on the uploaded document.</p>
+                    </div>
+                </div>
+
+                <textarea id='questionInput' placeholder='Example: Summarize this document in simple words.'></textarea>
+
+                <div class='quick-questions'>
+                    <button onclick='setQuestion(\"Summarize this document in simple words.\")'>Summarize</button>
+                    <button onclick='setQuestion(\"What are the main topics discussed in this document?\")'>Main Topics</button>
+                    <button onclick='setQuestion(\"List the key points from this document.\")'>Key Points</button>
+                </div>
+
+                <button class='ask-button' onclick='askQuestion()'>Ask Assistant</button>
+            </section>
+        </main>
+
+        <section class='card answer-card'>
+            <div class='card-header'>
+                <span class='step'>03</span>
+                <div>
+                    <h2>Answer</h2>
+                    <p>The response is generated using retrieved document context.</p>
+                </div>
+            </div>
+
+            <div id='loader' class='loader hidden'></div>
+
+            <div id='answerBox' class='answer-box'>
+                Your answer will appear here.
+            </div>
+        </section>
+
+        <section class='tech-section'>
+            <h2>Project Stack</h2>
+            <div class='tech-grid'>
+                <div>FastAPI</div>
+                <div>LangChain</div>
+                <div>ChromaDB</div>
+                <div>Sentence Transformers</div>
+                <div>Ollama</div>
+                <div>Pydantic</div>
+            </div>
+        </section>
+    </div>
+
+    <script src='/static/script.js'></script>
+</body>
+</html>

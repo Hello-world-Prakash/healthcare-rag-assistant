@@ -1,4 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from app.models import AskRequest, AskResponse
 from app.rag_pipeline import ingest_document, ask_question
 from pathlib import Path
@@ -15,13 +17,12 @@ app = FastAPI(
 DATA_DIR = Path('data')
 DATA_DIR.mkdir(exist_ok=True)
 
+app.mount('/static', StaticFiles(directory='static'), name='static')
+
 
 @app.get('/')
 def home():
-    return {
-        'message': 'Healthcare RAG Assistant is running',
-        'docs': 'Go to /docs to test the API'
-    }
+    return FileResponse('static/index.html')
 
 
 @app.post('/upload')
