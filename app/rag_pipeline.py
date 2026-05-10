@@ -18,6 +18,13 @@ llm = OllamaLLM(
 )
 
 
+def get_vector_store():
+    return Chroma(
+        persist_directory=CHROMA_DIR,
+        embedding_function=embedding_model
+    )
+
+
 def load_document(file_path: str):
     path = Path(file_path)
 
@@ -32,7 +39,48 @@ def load_document(file_path: str):
     raise ValueError('Only PDF and TXT files are supported.')
 
 
-def ingest_document(file_path: str, patient_id: str, file_name: str):
+def patient_id_exists(patient_id: str) -> bool:
+    vector_store = get_vector_store()
+
+    result = vector_store.get(
+        where={'patient_id': patient_id},
+        limit=1
+    )
+
+    return bool(result and result.get('ids'))
+
+
+def file_hash_exists(file_hash: str) -> bool:
+    vector_store = get_vector_store()
+
+    result = vector_store.get(
+        where={'file_hash': file_hash},
+        limit=1
+    )
+
+    return bool(result and result.get('ids'))
+
+
+def validate_patient_upload(patient_id: str, file_hash: str):
+    if patient_id_exists(patient_id):
+        return {
+            'is_valid': False,
+            'reason': f'Patient ID {patient_id} already exists. Please use a unique Patient ID.'
+        }
+
+    if file_hash_exists(file_hash):
+        return {
+            'is_valid': False,
+            'reason': 'This patient document/data was already uploaded before. Please use a different document.'
+        }
+
+    return {
+        'is_valid': True,
+        'reason': 'Patient upload is valid.'
+    }
+
+
+def ingest_document(file_path: str, patient_id: str, file_name: str, file_hash: str):
     documents = load_document(file_path)
 
     splitter = RecursiveCharacterTextSplitter(
@@ -45,11 +93,9 @@ def ingest_document(file_path: str, patient_id: str, file_name: str):
     for chunk in chunks:
         chunk.metadata['patient_id'] = patient_id
         chunk.metadata['file_name'] = file_name
+        chunk.metadata['file_hash'] = file_hash
 
-    vector_store = Chroma(
-        persist_directory=CHROMA_DIR,
-        embedding_function=embedding_model
-    )
+    vector_store = get_vector_store()
 
     vector_store.add_documents(chunks)
 
@@ -62,10 +108,7 @@ def ingest_document(file_path: str, patient_id: str, file_name: str):
 
 
 def ask_question(patient_id: str, question: str):
-    vector_store = Chroma(
-        persist_directory=CHROMA_DIR,
-        embedding_function=embedding_model
-    )
+    vector_store = get_vector_store()
 
     retriever = vector_store.as_retriever(
         search_kwargs={
